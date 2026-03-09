@@ -81,5 +81,217 @@ def teleop(
         environment.close()
 
 
+@app.command("data-info")
+def data_info(
+    path: str = typer.Argument(help="Path to dataset"),
+):
+    """Show dataset information."""
+    from rich.panel import Panel
+
+    from mimic.data.dataset import MimicDataset
+
+    ds = MimicDataset(path)
+    meta = ds.metadata
+
+    console.print(
+        Panel(
+            f"[bold]{meta.get('env_name', 'unknown')}[/bold]\n"
+            f"Episodes: [cyan]{meta.get('num_episodes', 0)}[/cyan]\n"
+            f"Frames: [cyan]{meta.get('num_frames', 0)}[/cyan]\n"
+            f"FPS: {meta.get('fps', 20)}\n"
+            f"Action dim: {meta.get('action_dim', '?')}\n"
+            f"State dim: {meta.get('state_dim', '?')}\n"
+            f"Cameras: {', '.join(meta.get('camera_names', []))}",
+            title="Dataset Info",
+        )
+    )
+
+
+@app.command("data-export")
+def data_export(
+    path: str = typer.Argument(help="Path to source dataset"),
+    output: str = typer.Argument(help="Output path"),
+    fmt: str = typer.Option("lerobot", "--format", help="Export format: lerobot, hdf5, rlds"),
+):
+    """Export dataset to another format."""
+    from pathlib import Path
+
+    from mimic.data.formats import export_to_hdf5, export_to_lerobot, export_to_rlds
+
+    source = Path(path)
+    dest = Path(output)
+
+    exporters = {
+        "lerobot": export_to_lerobot,
+        "hdf5": export_to_hdf5,
+        "rlds": export_to_rlds,
+    }
+
+    if fmt not in exporters:
+        console.print(f"[red]Unknown format: {fmt}. Available: {', '.join(exporters.keys())}[/red]")
+        raise typer.Exit(1)
+
+    console.print(f"Exporting [cyan]{source}[/cyan] to [cyan]{fmt}[/cyan] format...")
+    exporters[fmt](source, dest)
+    console.print(f"[green]Exported to {dest}[/green]")
+
+
+@app.command()
+def train(
+    policy: str = typer.Option("act", help="Policy: act or diffusion"),
+    data: str = typer.Option(..., help="Path to dataset"),
+    env: str = typer.Option("pick-place", help="Environment for evaluation"),
+    steps: int = typer.Option(100000, help="Training steps"),
+    batch_size: int = typer.Option(32, help="Batch size"),
+    lr: float = typer.Option(1e-4, help="Learning rate"),
+    eval_every: int = typer.Option(5000, help="Eval frequency"),
+    save_every: int = typer.Option(10000, help="Checkpoint save frequency"),
+    output: str = typer.Option("outputs", help="Output directory"),
+    device: str = typer.Option("auto", help="Device: auto, cpu, cuda"),
+):
+    """Train a policy on collected demonstrations."""
+    import json
+    from pathlib import Path
+
+    from mimic.config.models import TrainConfig
+    from mimic.train.policies.act import ACTPolicy
+    from mimic.train.policies.diffusion import DiffusionPolicy
+    from mimic.train.trainer import MimicTrainer
+
+    console.print("[bold cyan]Mimic Training[/bold cyan]")
+    console.print(f"  Policy: [green]{policy}[/green]")
+    console.print(f"  Dataset: [green]{data}[/green]")
+    console.print(f"  Steps: {steps}")
+    console.print()
+
+    # Load dataset metadata
+    meta_path = Path(data) / "meta" / "info.json"
+    if not meta_path.exists():
+        console.print(f"[red]Dataset not found at {data}[/red]")
+        raise typer.Exit(1)
+    with open(meta_path) as f:
+        meta = json.load(f)
+
+    obs_dim = meta["state_dim"]
+    action_dim = meta["action_dim"]
+
+    # Create policy
+    policies = {
+        "act": lambda: ACTPolicy(obs_dim=obs_dim, action_dim=action_dim),
+        "diffusion": lambda: DiffusionPolicy(obs_dim=obs_dim, action_dim=action_dim),
+    }
+    if policy not in policies:
+        console.print(
+            f"[red]Unknown policy: {policy}. Available: {', '.join(policies)}[/red]"
+        )
+        raise typer.Exit(1)
+
+    model = policies[policy]()
+    config = TrainConfig(
+        policy=policy,
+        batch_size=batch_size,
+        lr=lr,
+        steps=steps,
+        eval_every=eval_every,
+        save_every=save_every,
+        device=device,
+    )
+
+    trainer = MimicTrainer(model, config, data, output_dir=output)
+    console.print(f"[yellow]Training on {trainer.device}...[/yellow]")
+
+    try:
+        trainer.train()
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Training interrupted. Saving checkpoint...[/yellow]")
+        trainer.save_checkpoint("interrupted.pt")
+
+    console.print(f"[green]Training complete! Checkpoints saved to {output}[/green]")
+
+
+@app.command("eval")
+def evaluate(
+    checkpoint: str = typer.Option(..., help="Path to model checkpoint"),
+    env: str = typer.Option("pick-place", help="Environment name"),
+    episodes: int = typer.Option(10, help="Number of evaluation episodes"),
+    device: str = typer.Option("cpu", help="Device"),
+):
+    """Evaluate a trained policy in simulation."""
+    import torch
+    from rich.table import Table
+
+    import mimic.envs.tasks  # noqa: F401
+    from mimic.envs.registry import make as make_env
+    from mimic.train.eval import evaluate_policy
+    from mimic.train.policies.act import ACTPolicy
+    from mimic.train.policies.diffusion import DiffusionPolicy
+
+    console.print("[bold cyan]Mimic Evaluation[/bold cyan]")
+
+    environment = make_env(env)
+
+    # Try loading as ACT first, then Diffusion
+    ckpt = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    config = ckpt.get("config", {})
+
+    if "n_diffusion_steps" in config:
+        model = DiffusionPolicy.load(checkpoint)
+    else:
+        model = ACTPolicy.load(checkpoint)
+
+    model = model.to(device)
+    console.print(f"Evaluating on [green]{env}[/green] for {episodes} episodes...")
+
+    results = evaluate_policy(model, environment, n_episodes=episodes, device=device)
+
+    table = Table(title="Evaluation Results")
+    table.add_column("Metric")
+    table.add_column("Value")
+    table.add_row("Success Rate", f"{results['success_rate']:.1%}")
+    table.add_row("Mean Return", f"{results['mean_return']:.2f}")
+    table.add_row("Std Return", f"{results['std_return']:.2f}")
+    table.add_row("Episodes", str(results['n_episodes']))
+    console.print(table)
+
+    environment.close()
+
+
+@app.command("data-stats")
+def data_stats(
+    path: str = typer.Argument(help="Path to dataset"),
+):
+    """Compute and display dataset statistics."""
+    from pathlib import Path
+
+    from rich.table import Table
+
+    if (Path(path) / "meta" / "stats.json").exists():
+        import json
+
+        with open(Path(path) / "meta" / "stats.json") as f:
+            stats = json.load(f)
+        table = Table(title="Dataset Statistics")
+        table.add_column("Feature")
+        table.add_column("Mean")
+        table.add_column("Std")
+        table.add_column("Min")
+        table.add_column("Max")
+        for feature, values in stats.items():
+            mean = values.get("mean", "?")
+            std = values.get("std", "?")
+            min_val = values.get("min", "?")
+            max_val = values.get("max", "?")
+            # Format arrays nicely
+            if isinstance(mean, list):
+                mean = f"[{len(mean)} dims]"
+                std = f"[{len(std)} dims]" if isinstance(std, list) else std
+                min_val = f"[{len(min_val)} dims]" if isinstance(min_val, list) else min_val
+                max_val = f"[{len(max_val)} dims]" if isinstance(max_val, list) else max_val
+            table.add_row(feature, str(mean), str(std), str(min_val), str(max_val))
+        console.print(table)
+    else:
+        console.print("[yellow]No stats computed yet. Run with an active dataset.[/yellow]")
+
+
 if __name__ == "__main__":
     app()

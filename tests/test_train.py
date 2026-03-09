@@ -66,6 +66,88 @@ class TestACTPolicy:
         assert actions.shape == (1, 5, 2)
 
 
+class TestDiffusionPolicy:
+    def test_creates(self):
+        from mimic.train.policies.diffusion import DiffusionPolicy
+
+        policy = DiffusionPolicy(
+            obs_dim=18,
+            action_dim=9,
+            action_chunk_size=10,
+            hidden_dim=64,
+            n_layers=2,
+            n_diffusion_steps=10,
+        )
+        assert policy.obs_dim == 18
+
+    def test_forward(self):
+        from mimic.train.policies.diffusion import DiffusionPolicy
+
+        policy = DiffusionPolicy(
+            obs_dim=4,
+            action_dim=2,
+            action_chunk_size=5,
+            hidden_dim=32,
+            n_layers=2,
+            n_diffusion_steps=10,
+        )
+        batch = {"state": torch.randn(2, 5, 4), "action": torch.randn(2, 5, 2)}
+        output = policy.forward(batch)
+        assert "loss" in output
+        assert output["loss"].requires_grad
+
+    def test_predict(self):
+        from mimic.train.policies.diffusion import DiffusionPolicy
+
+        policy = DiffusionPolicy(
+            obs_dim=4,
+            action_dim=2,
+            action_chunk_size=5,
+            hidden_dim=32,
+            n_layers=2,
+            n_diffusion_steps=5,
+        )
+        policy.eval()
+        obs = {"state": torch.randn(1, 4)}
+        actions = policy.predict(obs)
+        assert actions.shape == (1, 5, 2)
+
+    def test_backward(self):
+        from mimic.train.policies.diffusion import DiffusionPolicy
+
+        policy = DiffusionPolicy(
+            obs_dim=4,
+            action_dim=2,
+            action_chunk_size=5,
+            hidden_dim=32,
+            n_layers=2,
+            n_diffusion_steps=10,
+        )
+        optimizer = policy.get_optimizer(lr=1e-3)
+        batch = {"state": torch.randn(2, 5, 4), "action": torch.randn(2, 5, 2)}
+        output = policy.forward(batch)
+        optimizer.zero_grad()
+        output["loss"].backward()
+        optimizer.step()
+
+    def test_save_load(self, tmp_path):
+        from mimic.train.policies.diffusion import DiffusionPolicy
+
+        policy = DiffusionPolicy(
+            obs_dim=4,
+            action_dim=2,
+            action_chunk_size=5,
+            hidden_dim=32,
+            n_layers=2,
+            n_diffusion_steps=10,
+        )
+        path = str(tmp_path / "diff_policy.pt")
+        policy.save(path)
+        loaded = DiffusionPolicy.load(path)
+        assert loaded.obs_dim == 4
+        assert loaded.n_diffusion_steps == 10
+
+
 class TestTrainer:
     def test_trainer_creates(self, tmp_path):
         from mimic.config.models import TrainConfig
