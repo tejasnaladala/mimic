@@ -1,0 +1,77 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mimic-robotics"
+version = "0.1.0"
+description = "Teach your robot anything from your browser"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [
+    { name = "Tejas" },
+]
+keywords = ["robotics", "imitation-learning", "teleoperation", "mujoco"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "mujoco>=3.2.0",
+    "numpy>=1.24.0",
+    "pydantic>=2.0.0",
+    "typer>=0.12.0",
+    "rich>=13.0.0",
+]
+
+[project.optional-dependencies]
+teleop = [
+    "fastapi>=0.115.0",
+    "uvicorn>=0.30.0",
+    "aiortc>=1.9.0",
+    "aiohttp>=3.9.0",
+]
+train = [
+    "torch>=2.2.0",
+    "torchvision>=0.17.0",
+    "einops>=0.8.0",
+    "wandb>=0.17.0",
+]
+deploy = [
+    "onnx>=1.16.0",
+    "onnxruntime>=1.18.0",
+]
+hub = [
+    "huggingface-hub>=0.24.0",
+    "pyarrow>=16.0.0",
+]
+all = [
+    "mimic-robotics[teleop,train,deploy,hub]",
+]
+dev = [
+    "pytest>=8.0.0",
+    "ruff>=0.5.0",
+    "mypy>=1.10.0",
+]
+
+[project.scripts]
+mimic = "mimic.cli.app:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mimic"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
