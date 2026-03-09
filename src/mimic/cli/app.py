@@ -43,5 +43,43 @@ def env_list():
     console.print(table)
 
 
+@app.command()
+def teleop(
+    env: str = typer.Option("pick-place", help="Environment name"),
+    port: int = typer.Option(8765, help="Server port"),
+    mode: str = typer.Option("joint", help="Control mode: joint or cartesian"),
+    no_browser: bool = typer.Option(False, help="Don't auto-open browser"),
+):
+    """Start browser-based teleoperation."""
+    import mimic.envs.tasks  # noqa: F401
+    from mimic.config.models import TeleopConfig
+    from mimic.envs.registry import make as make_env
+    from mimic.teleop.loop import TeleopLoop
+
+    console.print("[bold cyan]Mimic Teleoperation[/bold cyan]")
+    console.print(f"  Environment: [green]{env}[/green]")
+    console.print(f"  Control mode: [green]{mode}[/green]")
+    console.print(f"  Server: [blue]http://localhost:{port}[/blue]")
+    console.print()
+
+    try:
+        environment = make_env(env)
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    environment.reset()
+    config = TeleopConfig(port=port, control_mode=mode)
+    loop = TeleopLoop(environment, config)
+
+    console.print("[yellow]Press Ctrl+C to stop[/yellow]")
+    try:
+        loop.run(open_browser=not no_browser)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Shutting down...[/yellow]")
+    finally:
+        environment.close()
+
+
 if __name__ == "__main__":
     app()
