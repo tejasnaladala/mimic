@@ -1,0 +1,139 @@
+<mujoco model="tabletop_push">
+  <compiler angle="radian" autolimits="true"/>
+
+  <option timestep="0.001" gravity="0 0 -9.81" integrator="implicitfast">
+    <flag warmstart="enable"/>
+  </option>
+
+  <default>
+    <default class="panda">
+      <joint damping="100" armature="0.1"/>
+      <general ctrllimited="true"/>
+      <default class="panda_link">
+        <geom type="capsule" rgba="0.9 0.9 0.9 1" condim="4" friction="0.8 0.02 0.01"/>
+      </default>
+      <default class="panda_finger">
+        <geom type="box" rgba="0.3 0.3 0.3 1" condim="4" friction="1.0 0.02 0.01" solimp="0.95 0.99 0.001" solref="0.01 1"/>
+        <joint damping="50" armature="0.01"/>
+      </default>
+    </default>
+  </default>
+
+  <asset>
+    <texture name="grid" type="2d" builtin="checker" rgb1="0.8 0.8 0.8" rgb2="0.6 0.6 0.6" width="512" height="512"/>
+    <material name="grid_mat" texture="grid" texrepeat="8 8" texuniform="true" reflectance="0.1"/>
+    <material name="table_mat" rgba="0.6 0.5 0.4 1" reflectance="0.05"/>
+    <material name="cube_mat" rgba="0.85 0.15 0.15 1" reflectance="0.2"/>
+    <material name="target_mat" rgba="0.2 0.9 0.2 0.4"/>
+  </asset>
+
+  <worldbody>
+    <!-- Ground plane -->
+    <geom name="ground" type="plane" size="2 2 0.01" material="grid_mat"/>
+    <light name="light_dir" directional="true" pos="0.5 0.0 3.0" dir="0 0 -1" diffuse="0.7 0.7 0.7" specular="0.3 0.3 0.3"/>
+    <light name="light_fill" directional="true" pos="-0.5 1.0 2.0" dir="0.2 -0.4 -0.8" diffuse="0.4 0.4 0.4" specular="0.1 0.1 0.1"/>
+
+    <!-- Table -->
+    <body name="table" pos="0.5 0.0 0.0">
+      <geom name="table_top" type="box" size="0.35 0.45 0.02" pos="0 0 0.4" material="table_mat" mass="100"/>
+      <geom name="table_leg1" type="cylinder" size="0.03" fromto="-0.3 -0.4 0.0 -0.3 -0.4 0.38" material="table_mat"/>
+      <geom name="table_leg2" type="cylinder" size="0.03" fromto="0.3 -0.4 0.0  0.3 -0.4 0.38" material="table_mat"/>
+      <geom name="table_leg3" type="cylinder" size="0.03" fromto="-0.3  0.4 0.0 -0.3  0.4 0.38" material="table_mat"/>
+      <geom name="table_leg4" type="cylinder" size="0.03" fromto="0.3  0.4 0.0  0.3  0.4 0.38" material="table_mat"/>
+    </body>
+
+    <!-- Franka Panda Arm (mounted on table level) -->
+    <body name="panda_base" pos="0.0 0.0 0.42" childclass="panda">
+      <geom name="base_geom" type="cylinder" size="0.06 0.03" rgba="0.3 0.3 0.3 1" mass="3.0"/>
+
+      <!-- Link 0 -> Joint 1 -->
+      <body name="panda_link1" pos="0 0 0.05">
+        <joint name="panda_joint1" type="hinge" axis="0 0 1" range="-2.8973 2.8973" damping="80"/>
+        <geom name="link1_geom" class="panda_link" fromto="0 0 0 0 0 0.19" size="0.05" mass="3.5"/>
+
+        <!-- Link 1 -> Joint 2 -->
+        <body name="panda_link2" pos="0 0 0.195">
+          <joint name="panda_joint2" type="hinge" axis="0 1 0" range="-1.7628 1.7628" damping="80"/>
+          <geom name="link2_geom" class="panda_link" fromto="0 0 0 0 0 0.19" size="0.05" mass="3.5"/>
+
+          <!-- Link 2 -> Joint 3 -->
+          <body name="panda_link3" pos="0 0 0.195">
+            <joint name="panda_joint3" type="hinge" axis="0 0 1" range="-2.8973 2.8973" damping="80"/>
+            <geom name="link3_geom" class="panda_link" fromto="0 0 0 0 0.06 0.19" size="0.045" mass="2.5"/>
+
+            <!-- Link 3 -> Joint 4 -->
+            <body name="panda_link4" pos="0 0.06 0.195">
+              <joint name="panda_joint4" type="hinge" axis="0 -1 0" range="-3.0718 -0.0698" damping="80"/>
+              <geom name="link4_geom" class="panda_link" fromto="0 0 0 0 -0.06 0.19" size="0.045" mass="2.5"/>
+
+              <!-- Link 4 -> Joint 5 -->
+              <body name="panda_link5" pos="0 -0.06 0.195">
+                <joint name="panda_joint5" type="hinge" axis="0 0 1" range="-2.8973 2.8973" damping="60"/>
+                <geom name="link5_geom" class="panda_link" fromto="0 0 0 0 0.0 0.19" size="0.04" mass="2.0"/>
+
+                <!-- Link 5 -> Joint 6 -->
+                <body name="panda_link6" pos="0 0.0 0.195">
+                  <joint name="panda_joint6" type="hinge" axis="0 1 0" range="-0.0175 3.7525" damping="40"/>
+                  <geom name="link6_geom" class="panda_link" fromto="0 0 0 0 0.0 0.08" size="0.04" mass="1.5"/>
+
+                  <!-- Link 6 -> Joint 7 (wrist) -->
+                  <body name="panda_link7" pos="0 0 0.09">
+                    <joint name="panda_joint7" type="hinge" axis="0 0 1" range="-2.8973 2.8973" damping="20"/>
+                    <geom name="link7_geom" class="panda_link" type="cylinder" size="0.04 0.015" mass="0.5"/>
+
+                    <!-- Flange / Hand -->
+                    <body name="panda_hand" pos="0 0 0.04" quat="0.9238795 0 0 0.3826834">
+                      <geom name="hand_geom" type="box" size="0.03 0.06 0.015" rgba="0.3 0.3 0.3 1" mass="0.5"/>
+
+                      <!-- Wrist camera -->
+                      <camera name="wrist" pos="0.0 0.0 0.06" xyaxes="0 -1 0 0.5 0 1" fovy="60"/>
+
+                      <!-- Left finger -->
+                      <body name="panda_finger_left" pos="0 0.02 0.04">
+                        <joint name="panda_finger_joint1" type="slide" axis="0 1 0" range="0.001 0.04" damping="50"/>
+                        <geom name="finger_left_geom" class="panda_finger" size="0.012 0.008 0.028" pos="0 0.008 0"/>
+                      </body>
+
+                      <!-- Right finger -->
+                      <body name="panda_finger_right" pos="0 -0.02 0.04">
+                        <joint name="panda_finger_joint2" type="slide" axis="0 -1 0" range="0.001 0.04" damping="50"/>
+                        <geom name="finger_right_geom" class="panda_finger" size="0.012 0.008 0.028" pos="0 -0.008 0"/>
+                      </body>
+                    </body>
+                  </body>
+                </body>
+              </body>
+            </body>
+          </body>
+        </body>
+      </body>
+    </body>
+
+    <!-- Push cube: larger (0.03m half-size), heavier (density 2000), lower friction for sliding -->
+    <body name="cube" pos="0.5 0.0 0.45">
+      <freejoint name="cube_joint"/>
+      <geom name="cube_geom" type="box" size="0.03 0.03 0.03" material="cube_mat" density="2000" condim="4" friction="0.3 0.005 0.001"/>
+    </body>
+
+    <!-- Target marker (visual only, on table surface) -->
+    <body name="target" pos="0.5 0.2 0.45">
+      <geom name="target_geom" type="cylinder" size="0.04 0.002" material="target_mat" contype="0" conaffinity="0"/>
+    </body>
+
+    <!-- Front camera -->
+    <camera name="front" pos="1.2 0.0 1.0" xyaxes="0 1 0 -0.5 0 0.866" fovy="45"/>
+  </worldbody>
+
+  <!-- Actuators for Panda: 7 arm joints + 2 gripper joints -->
+  <actuator>
+    <general name="panda_actuator1" joint="panda_joint1" gainprm="300" biasprm="0 -300 -50" biastype="affine" ctrlrange="-2.8973 2.8973"/>
+    <general name="panda_actuator2" joint="panda_joint2" gainprm="300" biasprm="0 -300 -50" biastype="affine" ctrlrange="-1.7628 1.7628"/>
+    <general name="panda_actuator3" joint="panda_joint3" gainprm="300" biasprm="0 -300 -50" biastype="affine" ctrlrange="-2.8973 2.8973"/>
+    <general name="panda_actuator4" joint="panda_joint4" gainprm="300" biasprm="0 -300 -50" biastype="affine" ctrlrange="-3.0718 -0.0698"/>
+    <general name="panda_actuator5" joint="panda_joint5" gainprm="200" biasprm="0 -200 -30" biastype="affine" ctrlrange="-2.8973 2.8973"/>
+    <general name="panda_actuator6" joint="panda_joint6" gainprm="100" biasprm="0 -100 -20" biastype="affine" ctrlrange="-0.0175 3.7525"/>
+    <general name="panda_actuator7" joint="panda_joint7" gainprm="50" biasprm="0 -50 -10" biastype="affine" ctrlrange="-2.8973 2.8973"/>
+    <general name="panda_finger_actuator1" joint="panda_finger_joint1" gainprm="100" biasprm="0 -100 -10" biastype="affine" ctrlrange="0.001 0.04"/>
+    <general name="panda_finger_actuator2" joint="panda_finger_joint2" gainprm="100" biasprm="0 -100 -10" biastype="affine" ctrlrange="0.001 0.04"/>
+  </actuator>
+</mujoco>
