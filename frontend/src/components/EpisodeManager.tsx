@@ -1,5 +1,3 @@
-import React from 'react'
-
 interface EpisodeManagerProps {
   isConnected: boolean
   recording: boolean
@@ -14,47 +12,52 @@ export default function EpisodeManager({
   sendCommand,
 }: EpisodeManagerProps) {
   return (
-    <div className="panel">
-      <div className="panel__title">Episodes</div>
-      <div className="episode-controls">
-        <div className="episode-counter">
-          {episodeCount}
-          <div className="episode-counter__label">Episodes Collected</div>
+    <div className="hud-episode">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        {recording && (
+          <div className="hud-rec">
+            <span className="hud-rec__dot" />
+            REC
+          </div>
+        )}
+        <div>
+          <div className="hud-episode__counter">{episodeCount}</div>
+          <div className="hud-episode__label">EPISODES</div>
         </div>
+      </div>
 
-        <div className="btn-group">
+      <div className="hud-btn-group">
+        {!recording ? (
           <button
-            className="btn btn--primary btn--sm"
+            className="hud-btn hud-btn--danger"
             onClick={() => sendCommand({ type: 'start_recording' })}
-            disabled={!isConnected || recording}
+            disabled={!isConnected}
           >
-            Start Recording
+            [ REC ]
           </button>
+        ) : (
           <button
-            className="btn btn--ghost btn--sm"
+            className="hud-btn"
             onClick={() => sendCommand({ type: 'stop_recording' })}
-            disabled={!isConnected || !recording}
+            disabled={!isConnected}
           >
-            Stop
+            [ STOP ]
           </button>
-        </div>
-
-        <div className="btn-group">
-          <button
-            className="btn btn--success btn--sm"
-            onClick={() => sendCommand({ type: 'save_episode' })}
-            disabled={!isConnected || recording}
-          >
-            Save Episode
-          </button>
-          <button
-            className="btn btn--warning btn--sm"
-            onClick={() => sendCommand({ type: 'discard_episode' })}
-            disabled={!isConnected || recording}
-          >
-            Discard
-          </button>
-        </div>
+        )}
+        <button
+          className="hud-btn"
+          onClick={() => sendCommand({ type: 'save_episode' })}
+          disabled={!isConnected || recording}
+        >
+          [ SAVE ]
+        </button>
+        <button
+          className="hud-btn hud-btn--danger"
+          onClick={() => sendCommand({ type: 'discard_episode' })}
+          disabled={!isConnected || recording}
+        >
+          [ DISCARD ]
+        </button>
       </div>
     </div>
   )
