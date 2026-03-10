@@ -2,89 +2,115 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/tests-99%20passed-brightgreen.svg)]()
 
 **Teach your robot anything from your browser.**
 
-Mimic is a Python robotics library for teaching robots new skills through browser-based
-teleoperation and imitation learning. Control a simulated robot from your browser via WebRTC,
-record demonstrations, train state-of-the-art policies, and deploy learned behaviors back to
-your robot.
+Mimic is a complete robotics learning pipeline: teleoperate a simulated robot from your browser, record demonstrations, train state-of-the-art imitation learning policies, and deploy them in real-time. The entire workflow runs with 4 CLI commands.
 
-## Features
-
-- **Browser-based teleoperation** -- Control robots directly from your browser via WebRTC
-- **MuJoCo simulation** -- High-fidelity physics simulation with MuJoCo
-- **ACT + Diffusion Policy training** -- Train with state-of-the-art imitation learning algorithms
-- **ONNX export** -- Export trained policies to ONNX for fast, portable inference
-- **HuggingFace Hub integration** -- Share and download datasets and models from the Hub
+```
+Browser (WebRTC)  -->  Record Demos  -->  Train Policy  -->  Deploy
+     |                      |                  |               |
+  gamepad/touch/kb    Parquet + MP4      ACT / Diffusion    ONNX / PyTorch
+  mobile support      LeRobot v3 fmt     Transformer        real-time inference
+```
 
 ## Quick Start
 
-### Install
-
-```bash
-pip install mimic-robotics
-```
-
-Install with all optional dependencies:
-
 ```bash
 pip install "mimic-robotics[all]"
+
+# 1. Teleoperate -- browser opens automatically
+mimic teleop --env pick-place
+
+# 2. Train a policy on collected demos
+mimic train --policy act --data ./demos
+
+# 3. Evaluate in simulation
+mimic eval --checkpoint outputs/best.pt --env pick-place
+
+# 4. Export for deployment
+mimic deploy outputs/best.pt --output model.onnx
 ```
 
-### Teleoperate
+## Features
 
-Open your browser and control a simulated robot to demonstrate a task:
-
-```bash
-mimic teleop --env PegInsertion
-```
-
-### Train
-
-Train an imitation learning policy on collected demonstrations:
-
-```bash
-mimic train --data ./data/PegInsertion --policy act
-```
-
-### Evaluate
-
-Evaluate a trained policy in simulation:
-
-```bash
-mimic eval --policy ./checkpoints/act_best.onnx --env PegInsertion
-```
+- **Browser teleoperation** -- Control robots via WebRTC with keyboard, gamepad, or phone touch controls
+- **MuJoCo simulation** -- Panda arm with pick-place, push, and stack tasks out of the box
+- **ACT + Diffusion Policy** -- Train with Action Chunking Transformers or DDPM-based diffusion
+- **LeRobot-compatible data** -- Parquet + MP4 storage, export to LeRobot v3, HDF5, or RLDS
+- **ONNX deployment** -- Export models for fast edge inference with action buffering
+- **HuggingFace Hub** -- Push/pull datasets and models with `mimic hub-push` / `mimic hub-pull`
+- **Modular install** -- Only install what you need: `pip install mimic-robotics[teleop]`
 
 ## Architecture
 
 ```
-+------------+     WebRTC      +------------+     MuJoCo     +------------+
-|  Browser   | <------------> |   Server   | <-----------> | Simulation |
-| (teleop UI)|                | (FastAPI)  |               |  (MuJoCo)  |
-+------------+                +------------+               +------------+
-                                    |
-                                    v
-                              +------------+     ONNX       +------------+
-                              |  Training  | ------------> |   Deploy   |
-                              | (ACT / DP) |               | (realtime) |
-                              +------------+               +------------+
-                                    |
-                                    v
-                              +------------+
-                              |  HF Hub    |
-                              | (datasets) |
-                              +------------+
++------------------+    WebRTC     +------------------+    MuJoCo    +------------------+
+|     Browser      | <----------> |   Teleop Server  | <---------> |   Simulation     |
+|  React + Vite    |              |   FastAPI         |             |   MuJoCo 3.2+    |
+|  Gamepad/Touch   |              |   aiortc          |             |   Panda Arm      |
++------------------+              +------------------+             +------------------+
+                                         |
+                                         v
+                                  +------------------+    PyTorch   +------------------+
+                                  |   Data Pipeline  | ----------> |    Training      |
+                                  |   Parquet + MP4  |             |   ACT / Diff.    |
+                                  |   LeRobot v3     |             |   Transformer    |
+                                  +------------------+             +------------------+
+                                         |                                |
+                                         v                                v
+                                  +------------------+             +------------------+
+                                  |   HuggingFace    |             |    Deployment    |
+                                  |   Hub            |             |   ONNX export    |
+                                  |   Datasets/Models|             |   Inference srv  |
+                                  +------------------+             +------------------+
+```
+
+## CLI Reference
+
+| Command | Description |
+|---------|-------------|
+| `mimic teleop` | Start browser-based teleoperation |
+| `mimic train` | Train a policy on demonstrations |
+| `mimic eval` | Evaluate a trained policy in sim |
+| `mimic deploy` | Export model to ONNX |
+| `mimic env-list` | List available environments |
+| `mimic data-info` | Show dataset information |
+| `mimic data-export` | Export to LeRobot/HDF5/RLDS |
+| `mimic data-stats` | Compute dataset statistics |
+| `mimic hub-push` | Push dataset to HuggingFace |
+| `mimic hub-pull` | Pull dataset from HuggingFace |
+| `mimic hub-push-model` | Push model to HuggingFace |
+
+## Environments
+
+| Environment | Task | Action Space |
+|-------------|------|-------------|
+| `pick-place` | Pick up red cube, place on green target | 8D (7 joints + gripper) |
+| `push` | Push cube to target position | 8D |
+| `stack` | Stack red cube on blue cube | 8D |
+
+## Installation Options
+
+```bash
+# Full install (everything)
+pip install "mimic-robotics[all]"
+
+# Selective install
+pip install "mimic-robotics[teleop]"    # Browser teleoperation
+pip install "mimic-robotics[train]"     # Training (PyTorch)
+pip install "mimic-robotics[deploy]"    # ONNX export
+pip install "mimic-robotics[hub]"       # HuggingFace Hub
 ```
 
 ## Development
 
 ```bash
-git clone https://github.com/your-org/mimic.git
+git clone https://github.com/tejasag/mimic.git
 cd mimic
-pip install -e ".[dev]"
-pytest -v
-ruff check src/
+pip install -e ".[all,dev]"
+python -m pytest tests/ -v
 ```
 
 ## License

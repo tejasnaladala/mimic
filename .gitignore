@@ -55,6 +55,7 @@ Thumbs.db
 
 # Node / Frontend
 node_modules/
+package-lock.json
 !src/mimic/teleop/frontend/dist/
 
 # Project-specific
