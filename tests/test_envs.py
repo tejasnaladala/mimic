@@ -29,8 +29,8 @@ class TestConfigs:
 
     def test_camera_config_defaults(self):
         cam = CameraConfig(name="test_cam")
-        assert cam.width == 320
-        assert cam.height == 240
+        assert cam.width == 640
+        assert cam.height == 480
         assert cam.fovy == 45.0
 
     def test_train_config_defaults(self):

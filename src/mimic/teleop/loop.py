@@ -41,10 +41,18 @@ class TeleopLoop:
         self.server.send_state(response)
 
     async def _render_loop(self):
-        """Continuously render and push frames to WebRTC."""
+        """Continuously render and push frames to WebRTC.
+
+        Each frame, apply smoothing (tick) and step the environment
+        so that motion is continuous even between user commands.
+        """
         interval = 1.0 / self.config.fps
         while self._running:
             try:
+                # Smooth joint targets and step physics for continuous motion
+                smoothed = self.router.controller.tick()
+                self.env.step(smoothed)
+
                 frame = self.env.render(self.config.camera)
                 await self.server.push_frame(frame)
                 if self._frame_callback:
