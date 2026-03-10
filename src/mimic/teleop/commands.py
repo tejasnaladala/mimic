@@ -49,13 +49,16 @@ class CommandRouter:
         # Control commands
         action = self.controller.process_command(command)
         if action is not None:
-            obs, reward, done, info = self.env.step(action)
+            # Apply smoothing before stepping the environment
+            smoothed = self.controller.tick()
+            obs, reward, done, info = self.env.step(smoothed)
             return {
                 "status": "ok",
                 "reward": float(reward),
                 "done": done,
                 "is_success": info.get("is_success", False),
                 "recording": self._recording,
+                "joint_pos": list(self.env.data.qpos[:7]),
             }
 
         return {"status": "unknown_command", "type": cmd_type}

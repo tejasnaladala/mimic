@@ -113,5 +113,9 @@ class CartesianController:
             return self.env.data.xpos[self._body_id].copy()
         return np.zeros(3)
 
+    def tick(self) -> np.ndarray:
+        """Cartesian controller doesn't use smoothing; return action directly."""
+        return self._action.copy()
+
     def get_action(self) -> np.ndarray:
         return self._action.copy()

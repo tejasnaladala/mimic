@@ -15,7 +15,7 @@ SCENE_XML = Path(__file__).parent.parent / "assets" / "scenes" / "tabletop_stack
 # Table surface parameters for randomizing positions
 _TABLE_CENTER_X = 0.5
 _TABLE_CENTER_Y = 0.0
-_TABLE_Z = 0.445  # table top + half cube height
+_TABLE_Z = 0.45  # table surface (0.425) + half cube height (0.025)
 _SPAWN_RANGE_X = 0.12  # +/- from table center
 _SPAWN_RANGE_Y = 0.15  # +/- from table center
 _MIN_CUBE_DIST = 0.10  # minimum distance between the two cubes
@@ -50,8 +50,8 @@ class StackEnv(MimicEnv):
         state: full qpos + qvel
         joint_pos: joint positions
         joint_vel: joint velocities
-        image.front: front camera RGB image (240x320x3)
-        image.wrist: wrist camera RGB image (240x320x3)
+        image.front: front camera RGB image (480x640x3)
+        image.wrist: wrist camera RGB image (480x640x3)
 
     Action space:
         9-dim: 7 arm joint position targets + 2 gripper finger targets

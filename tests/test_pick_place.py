@@ -20,9 +20,9 @@ class TestPickPlace:
         assert "joint_vel" in obs
         assert "image.front" in obs
         assert "image.wrist" in obs
-        assert obs["image.front"].shape == (240, 320, 3)
+        assert obs["image.front"].shape == (480, 640, 3)
         assert obs["image.front"].dtype == np.uint8
-        assert obs["image.wrist"].shape == (240, 320, 3)
+        assert obs["image.wrist"].shape == (480, 640, 3)
         assert obs["image.wrist"].dtype == np.uint8
         env.close()
 

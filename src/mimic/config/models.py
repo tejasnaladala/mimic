@@ -7,8 +7,8 @@ class CameraConfig(BaseModel):
     """Configuration for a single camera in the environment."""
 
     name: str
-    width: int = 320
-    height: int = 240
+    width: int = 640
+    height: int = 480
     fovy: float = 45.0
 
 
@@ -19,8 +19,8 @@ class EnvConfig(BaseModel):
     robot: str = "panda"
     cameras: list[CameraConfig] = Field(
         default_factory=lambda: [
-            CameraConfig(name="front", width=320, height=240),
-            CameraConfig(name="wrist", width=320, height=240),
+            CameraConfig(name="front", width=640, height=480),
+            CameraConfig(name="wrist", width=640, height=480),
         ]
     )
     control_hz: int = 20
