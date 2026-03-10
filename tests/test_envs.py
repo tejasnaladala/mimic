@@ -42,7 +42,7 @@ class TestConfigs:
     def test_teleop_config_defaults(self):
         config = TeleopConfig()
         assert config.port == 8765
-        assert config.control_mode == "cartesian"
+        assert config.control_mode == "joint"
 
 
 class TestRegistry:

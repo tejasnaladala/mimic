@@ -68,3 +68,4 @@ data/
 checkpoints/
 demo_data/
 **/panda_repo/
+.claude/

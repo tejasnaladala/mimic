@@ -1,6 +1,5 @@
 # Mimic - Full System Design & Implementation Plan
 
-> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Build Mimic — the universal robot learning pipeline that lets anyone teach a robot new skills from their browser. Collect demonstrations via teleoperation, train foundation models, deploy to edge hardware. `pip install mimic-robotics`.
 

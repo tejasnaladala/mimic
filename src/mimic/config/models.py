@@ -48,6 +48,6 @@ class TeleopConfig(BaseModel):
 
     host: str = "0.0.0.0"
     port: int = 8765
-    control_mode: str = "cartesian"  # "joint" | "cartesian"
+    control_mode: str = "joint"  # "joint" | "cartesian"
     camera: str = "front"
-    fps: int = 30
+    fps: int = 60
