@@ -313,5 +313,64 @@ def deploy(
         raise typer.Exit(1)
 
 
+@app.command("hub-push")
+def hub_push(
+    path: str = typer.Argument(help="Path to dataset directory"),
+    repo: str = typer.Option(..., help="HuggingFace repo ID (e.g. username/pick-place-demos)"),
+    private: bool = typer.Option(False, help="Make the repository private"),
+):
+    """Push a dataset to HuggingFace Hub."""
+    from mimic.hub.client import MimicHubClient
+
+    client = MimicHubClient()
+    console.print(f"Pushing [cyan]{path}[/cyan] to [green]{repo}[/green]...")
+
+    try:
+        url = client.push_dataset(path, repo, private=private)
+        console.print(f"[green]Dataset pushed to {url}[/green]")
+    except Exception as e:
+        console.print(f"[red]Push failed: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command("hub-pull")
+def hub_pull(
+    repo: str = typer.Argument(help="HuggingFace repo ID (e.g. username/pick-place-demos)"),
+    output: str = typer.Option("./demos", help="Output directory"),
+):
+    """Pull a dataset from HuggingFace Hub."""
+    from mimic.hub.client import MimicHubClient
+
+    client = MimicHubClient()
+    console.print(f"Pulling [green]{repo}[/green] to [cyan]{output}[/cyan]...")
+
+    try:
+        result_path = client.pull_dataset(repo, output)
+        console.print(f"[green]Dataset downloaded to {result_path}[/green]")
+    except Exception as e:
+        console.print(f"[red]Pull failed: {e}[/red]")
+        raise typer.Exit(1)
+
+
+@app.command("hub-push-model")
+def hub_push_model(
+    path: str = typer.Argument(help="Path to model checkpoint (.pt)"),
+    repo: str = typer.Option(..., help="HuggingFace repo ID (e.g. username/pick-place-act)"),
+    private: bool = typer.Option(False, help="Make the repository private"),
+):
+    """Push a model checkpoint to HuggingFace Hub."""
+    from mimic.hub.client import MimicHubClient
+
+    client = MimicHubClient()
+    console.print(f"Pushing [cyan]{path}[/cyan] to [green]{repo}[/green]...")
+
+    try:
+        url = client.push_model(path, repo, private=private)
+        console.print(f"[green]Model pushed to {url}[/green]")
+    except Exception as e:
+        console.print(f"[red]Push failed: {e}[/red]")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()
