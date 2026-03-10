@@ -52,7 +52,7 @@ class TestTeleopServer:
         client = TestClient(server.app)
         resp = client.get("/")
         assert resp.status_code == 200
-        assert "Mimic Teleoperation" in resp.text
+        assert "MIMIC" in resp.text
         env.close()
 
     def test_on_command_callback(self):
