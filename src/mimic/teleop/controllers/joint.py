@@ -37,7 +37,10 @@ class JointController:
         return self._current.copy()
 
     def process_command(self, command: dict) -> np.ndarray | None:
-        """Process a command dict and update _target. Returns _target copy, or None if not handled."""
+        """Process a command and update _target.
+
+        Returns _target copy, or None if not handled.
+        """
         cmd_type = command.get("type")
 
         if cmd_type == "joint_delta":

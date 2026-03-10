@@ -9,7 +9,6 @@ from pathlib import Path
 import numpy as np
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.base import BaseHTTPMiddleware

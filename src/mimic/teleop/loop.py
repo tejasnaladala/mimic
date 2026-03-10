@@ -29,7 +29,12 @@ class TeleopLoop:
     streams MuJoCo frames in real time.
     """
 
-    def __init__(self, env: MimicEnv, config: TeleopConfig | None = None, data_dir: str = "demo_data"):
+    def __init__(
+        self,
+        env: MimicEnv,
+        config: TeleopConfig | None = None,
+        data_dir: str = "demo_data",
+    ):
         self.env = env
         self.config = config or TeleopConfig()
         self.server = TeleopServer(env)
