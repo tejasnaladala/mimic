@@ -293,5 +293,25 @@ def data_stats(
         console.print("[yellow]No stats computed yet. Run with an active dataset.[/yellow]")
 
 
+@app.command("deploy")
+def deploy(
+    checkpoint: str = typer.Argument(help="Path to model checkpoint (.pt)"),
+    output: str = typer.Option("model.onnx", help="Output ONNX path"),
+):
+    """Export a trained model to ONNX format for deployment."""
+    from mimic.deploy.export import export_to_onnx
+
+    console.print("[bold cyan]Exporting model...[/bold cyan]")
+    console.print(f"  Checkpoint: [green]{checkpoint}[/green]")
+    console.print(f"  Output: [green]{output}[/green]")
+
+    try:
+        path = export_to_onnx(checkpoint, output)
+        console.print(f"[green]Exported to {path}[/green]")
+    except Exception as e:
+        console.print(f"[red]Export failed: {e}[/red]")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
     app()
