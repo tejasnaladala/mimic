@@ -58,10 +58,6 @@ class TeleopServer:
                     await pc.close()
                     self._pcs.discard(pc)
 
-            # Add video track
-            video = MuJoCoVideoTrack(self._frame_queue)
-            pc.addTrack(video)
-
             # Handle data channel for commands
             @pc.on("datachannel")
             def on_datachannel(channel):
@@ -81,7 +77,13 @@ class TeleopServer:
                     if channel in self._data_channels:
                         self._data_channels.remove(channel)
 
+            # Set remote description first so transceivers are created
             await pc.setRemoteDescription(sdp)
+
+            # Add video track via transceiver with explicit direction
+            video = MuJoCoVideoTrack(self._frame_queue)
+            pc.addTrack(video)
+
             answer = await pc.createAnswer()
             await pc.setLocalDescription(answer)
 

@@ -38,6 +38,9 @@ export function useWebRTC(
     })
     pcRef.current = pc
 
+    // Request video from server (recvonly transceiver)
+    pc.addTransceiver('video', { direction: 'recvonly' })
+
     // Create data channel for sending commands
     const dc = pc.createDataChannel('commands', { ordered: true })
     dcRef.current = dc
