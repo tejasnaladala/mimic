@@ -30,7 +30,7 @@ def version():
 
     console.print(BANNER)
     console.print(f"  [bold]v{__version__}[/bold] | Python 3.11+ | MuJoCo | PyTorch")
-    console.print(f"  [dim]pip install mimic-robotics[all][/dim]")
+    console.print("  [dim]pip install mimic-robotics[all][/dim]")
     console.print()
 
 

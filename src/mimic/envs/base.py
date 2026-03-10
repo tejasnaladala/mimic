@@ -50,7 +50,7 @@ class MimicEnv:
         renderer.update_scene(self.data, camera=camera)
         return renderer.render().copy()
 
-    def render_free(self, cam: "mujoco.MjvCamera", camera_name: str = "front") -> np.ndarray:
+    def render_free(self, cam: mujoco.MjvCamera, camera_name: str = "front") -> np.ndarray:
         """Render from a free-orbit MjvCamera (for interactive viewport)."""
         renderer = self._renderers[camera_name]
         renderer.update_scene(self.data, camera=cam)
