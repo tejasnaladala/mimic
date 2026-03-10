@@ -1,0 +1,46 @@
+site_name: Mimic
+site_description: Teach your robot anything from your browser
+site_url: https://mimic-robotics.github.io/mimic
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: cyan
+      accent: cyan
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: cyan
+      accent: cyan
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - content.code.annotate
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Guides:
+      - Environments: environments.md
+      - Teleoperation: teleoperation.md
+      - Training: training.md
+      - Deployment: deployment.md
+  - API Reference: api/index.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
