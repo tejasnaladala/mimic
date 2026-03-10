@@ -92,6 +92,50 @@ def teleop(
         environment.close()
 
 
+@app.command()
+def replay(
+    data: str = typer.Option("demo_data", help="Path to dataset"),
+    episode: int = typer.Option(0, help="Episode index to replay"),
+    env: str = typer.Option("pick-place", help="Environment name"),
+    port: int = typer.Option(8765, help="Server port"),
+    no_browser: bool = typer.Option(False, help="Don't auto-open browser"),
+):
+    """Replay a recorded episode in the browser viewer."""
+    import mimic.envs.tasks  # noqa: F401
+    from mimic.config.models import TeleopConfig
+    from mimic.envs.registry import make as make_env
+    from mimic.teleop.replay import ReplayLoop
+
+    console.print("[bold cyan]Mimic Replay[/bold cyan]")
+    console.print(f"  Dataset: [green]{data}[/green]")
+    console.print(f"  Episode: [green]{episode}[/green]")
+    console.print(f"  Server: [blue]http://localhost:{port}[/blue]")
+    console.print()
+
+    try:
+        environment = make_env(env)
+    except ValueError as e:
+        console.print(f"[red]Error: {e}[/red]")
+        raise typer.Exit(1)
+
+    environment.reset()
+    config = TeleopConfig(port=port)
+
+    try:
+        loop = ReplayLoop(environment, data_dir=data, episode_idx=episode, config=config)
+    except FileNotFoundError as e:
+        console.print(f"[red]{e}[/red]")
+        raise typer.Exit(1)
+
+    console.print("[yellow]Press Ctrl+C to stop[/yellow]")
+    try:
+        loop.run(open_browser=not no_browser)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]Shutting down...[/yellow]")
+    finally:
+        environment.close()
+
+
 @app.command("data-info")
 def data_info(
     path: str = typer.Argument(help="Path to dataset"),

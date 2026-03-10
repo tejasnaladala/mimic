@@ -94,13 +94,12 @@ class TestCommandRouter:
         assert resp["status"] == "ok"
         env.close()
 
-    def test_joint_command_steps_env(self):
+    def test_joint_command_updates_target(self):
         env = make("pick-place")
         env.reset()
         router = CommandRouter(env)
         resp = router.process({"type": "joint_delta", "joint": 0, "delta": 0.1})
-        assert "reward" in resp
-        assert isinstance(resp["reward"], float)
+        assert resp["status"] == "ok"
         env.close()
 
     def test_recording_toggle(self):

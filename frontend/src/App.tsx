@@ -18,6 +18,7 @@ interface Stats {
   done: boolean
   isSuccess: boolean
   recording: boolean
+  gotoActive: boolean
 }
 
 const SHORTCUTS = [
@@ -30,8 +31,15 @@ const SHORTCUTS = [
   { key: 'U/J', desc: 'J6' },
   { key: 'O/L', desc: 'Grip' },
   { key: 'Space', desc: 'Reset' },
-  { key: 'M', desc: 'Mode' },
+  { key: 'Drag', desc: 'Orbit' },
+  { key: 'Scroll', desc: 'Zoom' },
+  { key: 'R-Drag', desc: 'Pan' },
+  { key: 'Ctrl+Click', desc: 'GoTo' },
 ]
+
+const ORBIT_SENSITIVITY = 0.4
+const PAN_SENSITIVITY = 0.003
+const ZOOM_SENSITIVITY = 0.15
 
 export default function App() {
   const [envInfo, setEnvInfo] = useState<EnvInfo | null>(null)
@@ -44,6 +52,7 @@ export default function App() {
     done: false,
     isSuccess: false,
     recording: false,
+    gotoActive: false,
   })
 
   // FPS counter
@@ -57,6 +66,7 @@ export default function App() {
         done: (state.done as boolean) ?? false,
         isSuccess: (state.is_success as boolean) ?? false,
         recording: (state.recording as boolean) ?? false,
+        gotoActive: (state.goto_active as boolean) ?? false,
       })
     }
     if (state.mode !== undefined) {
@@ -171,6 +181,96 @@ export default function App() {
     }
   }, [isConnected, sendCommand, controlMode])
 
+  // Mouse orbit / pan / zoom / click-to-navigate controls
+  useEffect(() => {
+    let isDragging = false
+    let button = 0
+    let lastX = 0
+    let lastY = 0
+    let didDrag = false
+
+    const handleMouseDown = (ev: MouseEvent) => {
+      // Ctrl+click: send goto command (don't start orbit)
+      if (ev.ctrlKey && ev.button === 0 && isConnected) {
+        ev.preventDefault()
+        const nx = ev.clientX / window.innerWidth
+        const ny = ev.clientY / window.innerHeight
+        sendCommand({ type: 'goto_click', nx, ny })
+        return
+      }
+
+      isDragging = true
+      didDrag = false
+      button = ev.button
+      lastX = ev.clientX
+      lastY = ev.clientY
+      // Prevent text selection while dragging
+      ev.preventDefault()
+    }
+
+    const handleMouseMove = (ev: MouseEvent) => {
+      if (!isDragging || !isConnected) return
+      const dx = ev.clientX - lastX
+      const dy = ev.clientY - lastY
+      lastX = ev.clientX
+      lastY = ev.clientY
+
+      if (button === 0) {
+        // Left-drag: orbit
+        sendCommand({
+          type: 'camera_orbit',
+          daz: -dx * ORBIT_SENSITIVITY,
+          del: dy * ORBIT_SENSITIVITY,
+        })
+      } else if (button === 2) {
+        // Right-drag: pan
+        sendCommand({
+          type: 'camera_pan',
+          dx: dx * PAN_SENSITIVITY,
+          dy: dy * PAN_SENSITIVITY,
+        })
+      }
+    }
+
+    const handleMouseUp = () => {
+      isDragging = false
+    }
+
+    const handleWheel = (ev: WheelEvent) => {
+      if (!isConnected) return
+      ev.preventDefault()
+      sendCommand({
+        type: 'camera_zoom',
+        dd: ev.deltaY > 0 ? ZOOM_SENSITIVITY : -ZOOM_SENSITIVITY,
+      })
+    }
+
+    const handleContextMenu = (ev: MouseEvent) => {
+      ev.preventDefault() // Disable right-click menu for pan
+    }
+
+    // Double-click to reset camera
+    const handleDblClick = () => {
+      if (!isConnected) return
+      sendCommand({ type: 'camera_reset' })
+    }
+
+    window.addEventListener('mousedown', handleMouseDown)
+    window.addEventListener('mousemove', handleMouseMove)
+    window.addEventListener('mouseup', handleMouseUp)
+    window.addEventListener('wheel', handleWheel, { passive: false })
+    window.addEventListener('contextmenu', handleContextMenu)
+    window.addEventListener('dblclick', handleDblClick)
+    return () => {
+      window.removeEventListener('mousedown', handleMouseDown)
+      window.removeEventListener('mousemove', handleMouseMove)
+      window.removeEventListener('mouseup', handleMouseUp)
+      window.removeEventListener('wheel', handleWheel)
+      window.removeEventListener('contextmenu', handleContextMenu)
+      window.removeEventListener('dblclick', handleDblClick)
+    }
+  }, [isConnected, sendCommand])
+
   return (
     <div className="hud-container">
       {/* Full-bleed video background */}
@@ -189,6 +289,9 @@ export default function App() {
           <div className="hud-mode">
             {controlMode} // {envInfo.control_hz}HZ
           </div>
+        )}
+        {stats.gotoActive && (
+          <div className="hud-goto">NAVIGATING...</div>
         )}
       </div>
 

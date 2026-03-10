@@ -9,8 +9,10 @@ from pathlib import Path
 import numpy as np
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from mimic.envs.base import MimicEnv
 from mimic.teleop.video import MuJoCoVideoTrack
@@ -24,6 +26,18 @@ class TeleopServer:
     def __init__(self, env: MimicEnv):
         self.env = env
         self.app = FastAPI(title="Mimic Teleoperation")
+
+        # No-cache middleware — forces browser to always fetch fresh assets
+        class NoCacheMiddleware(BaseHTTPMiddleware):
+            async def dispatch(self, request, call_next):
+                response = await call_next(request)
+                if request.url.path.endswith((".html", "/")):
+                    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+                    response.headers["Pragma"] = "no-cache"
+                return response
+
+        self.app.add_middleware(NoCacheMiddleware)
+
         self._pcs: set[RTCPeerConnection] = set()
         self._frame_queue: asyncio.Queue = asyncio.Queue(maxsize=2)
         self._command_callback: Callable | None = None
