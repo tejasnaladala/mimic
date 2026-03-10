@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "mimic-teleop",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-c", "import mimic.envs.tasks; from mimic.envs.registry import make; from mimic.config.models import TeleopConfig; from mimic.teleop.loop import TeleopLoop; env = make('pick-place'); env.reset(); loop = TeleopLoop(env, TeleopConfig(port=8765)); loop.run(open_browser=False)"],
+      "port": 8765
+    }
+  ]
+}

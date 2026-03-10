@@ -9,6 +9,14 @@ app = typer.Typer(
 )
 console = Console()
 
+BANNER = r"""[bold cyan]
+  __  __ ___ __  __ ___ ___
+ |  \/  |_ _|  \/  |_ _/ __|
+ | |\/| || || |\/| || | (__
+ |_|  |_|___|_|  |_|___\___|[/bold cyan]
+[dim]  Teach your robot anything from your browser.[/dim]
+"""
+
 
 @app.callback()
 def main() -> None:
@@ -20,7 +28,10 @@ def version():
     """Show mimic version."""
     from mimic import __version__
 
-    console.print(f"mimic v{__version__}")
+    console.print(BANNER)
+    console.print(f"  [bold]v{__version__}[/bold] | Python 3.11+ | MuJoCo | PyTorch")
+    console.print(f"  [dim]pip install mimic-robotics[all][/dim]")
+    console.print()
 
 
 @app.command("env-list")
