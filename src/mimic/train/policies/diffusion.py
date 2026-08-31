@@ -124,27 +124,44 @@ class DiffusionPolicy(MimicPolicy):
 
         # Flatten action chunk
         T = min(actions.shape[1], self.action_chunk_size)
-        actions_flat = actions[:, :T].reshape(B, -1)  # [B, T*action_dim]
+        actions = actions[:, :T]
+        is_pad = batch.get("is_pad")
+        if is_pad is None:
+            is_pad = torch.zeros(B, T, dtype=torch.bool, device=actions.device)
+        else:
+            is_pad = is_pad[:, :T]
+        actions = actions.masked_fill(is_pad.unsqueeze(-1), 0.0)
 
-        # Pad if needed
-        target_len = self.action_chunk_size * self.action_dim
-        if actions_flat.shape[1] < target_len:
-            pad = torch.zeros(
-                B, target_len - actions_flat.shape[1], device=actions_flat.device
+        if T < self.action_chunk_size:
+            pad_steps = self.action_chunk_size - T
+            actions = torch.cat(
+                [
+                    actions,
+                    torch.zeros(B, pad_steps, self.action_dim, device=actions.device),
+                ],
+                dim=1,
             )
-            actions_flat = torch.cat([actions_flat, pad], dim=1)
+            is_pad = torch.cat(
+                [is_pad, torch.ones(B, pad_steps, dtype=torch.bool, device=actions.device)],
+                dim=1,
+            )
+
+        actions_flat = actions.reshape(B, -1)
+        valid_elements = (~is_pad).unsqueeze(-1).expand(-1, -1, self.action_dim).reshape(B, -1)
 
         # Sample random timesteps
         t = torch.randint(0, self.n_diffusion_steps, (B,), device=state.device)
 
         # Add noise
         noisy_actions, noise = self._add_noise(actions_flat, t)
+        noisy_actions = noisy_actions.masked_fill(~valid_elements, 0.0)
 
         # Predict noise
         pred_noise = self._predict_noise(noisy_actions, state_cond, t)
 
         # Loss
-        loss = F.mse_loss(pred_noise, noise)
+        squared_error = F.mse_loss(pred_noise, noise, reduction="none")
+        loss = (squared_error * valid_elements).sum() / valid_elements.sum().clamp_min(1)
 
         return {"loss": loss}
 

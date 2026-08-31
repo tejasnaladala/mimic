@@ -3,7 +3,12 @@ import asyncio
 from fastapi.testclient import TestClient
 
 import mimic.envs.tasks  # noqa: F401
+from mimic.config.models import TeleopConfig
 from mimic.envs.registry import make
+
+
+def test_teleop_defaults_to_loopback() -> None:
+    assert TeleopConfig().host == "127.0.0.1"
 
 
 class TestTeleopServer:
