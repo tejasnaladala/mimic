@@ -13,7 +13,6 @@ from pathlib import Path
 
 import numpy as np
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn, TimeElapsedColumn
 
 console = Console()
 
@@ -58,7 +57,10 @@ def create_demo_dataset(output_dir: str = "./demo_data", n_episodes: int = 5):
             "length_s": n_frames / 20.0,
         })
         total_frames += n_frames
-        console.print(f"  [dim]Episode {ep+1}/{n_episodes}[/dim]  frames={n_frames}  [green]ok[/green]")
+        console.print(
+            f"  [dim]Episode {ep+1}/{n_episodes}[/dim]  "
+            f"frames={n_frames}  [green]ok[/green]"
+        )
 
     # Save as parquet-like numpy files (simplified for demo)
     states_all = np.concatenate(all_states)
@@ -109,7 +111,7 @@ def create_demo_dataset(output_dir: str = "./demo_data", n_episodes: int = 5):
     with open(meta_dir / "stats.json", "w") as f:
         json.dump(stats, f, indent=2)
 
-    console.print(f"\n[green]Dataset created:[/green]")
+    console.print("\n[green]Dataset created:[/green]")
     console.print(f"  Episodes: [cyan]{n_episodes}[/cyan]")
     console.print(f"  Frames:   [cyan]{total_frames}[/cyan]")
     console.print(f"  Path:     [cyan]{output_dir}[/cyan]\n")

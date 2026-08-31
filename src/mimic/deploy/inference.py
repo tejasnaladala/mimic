@@ -41,12 +41,11 @@ class InferenceServer:
             logger.info(f"Loaded ONNX model: {self.model_path}")
 
         elif self.backend == "torch":
-            import torch
-
             from mimic.train.policies.act import ACTPolicy
+            from mimic.train.policies.base import load_checkpoint
             from mimic.train.policies.diffusion import DiffusionPolicy
 
-            ckpt = torch.load(str(self.model_path), map_location="cpu", weights_only=False)
+            ckpt = load_checkpoint(self.model_path)
             config = ckpt.get("config", {})
             if "n_diffusion_steps" in config:
                 self._policy = DiffusionPolicy.load(str(self.model_path))

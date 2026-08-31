@@ -92,17 +92,27 @@ class ACTPolicy(MimicPolicy):
             nn.Linear(hidden_dim, action_dim),
         )
 
-    def encode_latent(self, state: torch.Tensor, actions: torch.Tensor):
+    def encode_latent(
+        self,
+        state: torch.Tensor,
+        actions: torch.Tensor,
+        is_pad: torch.Tensor | None = None,
+    ):
         """CVAE encoder: encode state + action sequence to latent distribution."""
         B, T, _ = actions.shape
         state_emb = self.state_encoder(state[:, 0])  # [B, hidden]
 
+        if is_pad is None:
+            is_pad = torch.zeros(B, T, dtype=torch.bool, device=actions.device)
+        actions = actions.masked_fill(is_pad.unsqueeze(-1), 0.0)
         action_emb = self.action_proj(actions)  # [B, T, hidden]
         # Prepend state embedding as CLS token
         cls_token = state_emb.unsqueeze(1)  # [B, 1, hidden]
         encoder_input = torch.cat([cls_token, action_emb], dim=1)  # [B, T+1, hidden]
+        cls_is_pad = torch.zeros(B, 1, dtype=torch.bool, device=actions.device)
+        padding_mask = torch.cat([cls_is_pad, is_pad], dim=1)
 
-        encoded = self.cvae_encoder(encoder_input)
+        encoded = self.cvae_encoder(encoder_input, src_key_padding_mask=padding_mask)
         cls_output = encoded[:, 0]  # [B, hidden]
 
         mean = self.latent_mean(cls_output)
@@ -136,9 +146,14 @@ class ACTPolicy(MimicPolicy):
         """Training forward pass with CVAE."""
         state = batch["state"]  # [B, T, obs_dim]
         actions = batch["action"]  # [B, T, action_dim]
+        is_pad = batch.get("is_pad")
+        if is_pad is None:
+            is_pad = torch.zeros(
+                actions.shape[:2], dtype=torch.bool, device=actions.device
+            )
 
         # CVAE encode
-        mean, logvar = self.encode_latent(state, actions)
+        mean, logvar = self.encode_latent(state, actions, is_pad)
         latent = self.reparameterize(mean, logvar)
 
         # Decode
@@ -146,7 +161,12 @@ class ACTPolicy(MimicPolicy):
 
         # Losses
         T = min(pred_actions.shape[1], actions.shape[1])
-        recon_loss = F.mse_loss(pred_actions[:, :T], actions[:, :T])
+        valid = (~is_pad[:, :T]).unsqueeze(-1)
+        squared_error = F.mse_loss(
+            pred_actions[:, :T], actions[:, :T], reduction="none"
+        )
+        valid_elements = valid.sum() * actions.shape[-1]
+        recon_loss = (squared_error * valid).sum() / valid_elements.clamp_min(1)
         kl_loss = -0.5 * torch.mean(1 + logvar - mean.pow(2) - logvar.exp())
         total_loss = recon_loss + self.kl_weight * kl_loss
 

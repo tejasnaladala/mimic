@@ -6,6 +6,8 @@ from pathlib import Path
 import numpy as np
 import torch
 
+from mimic.train.policies.base import load_checkpoint
+
 logger = logging.getLogger(__name__)
 
 
@@ -26,7 +28,7 @@ def export_to_onnx(
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     # Load checkpoint to determine type
-    ckpt = torch.load(str(checkpoint_path), map_location="cpu", weights_only=False)
+    ckpt = load_checkpoint(checkpoint_path)
     config = ckpt.get("config", {})
 
     if "n_diffusion_steps" in config:

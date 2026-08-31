@@ -21,7 +21,10 @@ class MimicTrainDataset(Dataset):
         self.dataset_path = Path(dataset_path)
         self.chunk_size = chunk_size
         self.normalize = normalize
-        self._frames: list[dict] = []
+        if self.chunk_size < 1:
+            raise ValueError("chunk_size must be at least 1")
+        self._episodes: list[list[dict]] = []
+        self._windows: list[tuple[int, int]] = []
         self._stats: dict | None = None
 
         self._load_all_episodes()
@@ -34,7 +37,10 @@ class MimicTrainDataset(Dataset):
             return
         for parquet_file in sorted(data_dir.glob("episode_*.parquet")):
             table = pq.read_table(parquet_file)
+            if table.num_rows == 0:
+                continue
             ep_idx = table.column("episode_index")[0].as_py()
+            episode: list[dict] = []
             for i in range(table.num_rows):
                 frame = {
                     "state": np.array(
@@ -46,7 +52,12 @@ class MimicTrainDataset(Dataset):
                     "episode_index": ep_idx,
                     "frame_index": table.column("frame_index")[i].as_py(),
                 }
-                self._frames.append(frame)
+                episode.append(frame)
+
+            episode.sort(key=lambda frame: frame["frame_index"])
+            episode_slot = len(self._episodes)
+            self._episodes.append(episode)
+            self._windows.extend((episode_slot, start) for start in range(len(episode)))
 
     def _load_stats(self):
         stats_path = self.dataset_path / "meta" / "stats.json"
@@ -63,10 +74,13 @@ class MimicTrainDataset(Dataset):
         return arr
 
     def __len__(self) -> int:
-        return max(0, len(self._frames) - self.chunk_size)
+        return len(self._windows)
 
     def __getitem__(self, idx: int) -> dict[str, torch.Tensor]:
-        frames = self._frames[idx : idx + self.chunk_size]
+        episode_slot, start = self._windows[idx]
+        episode = self._episodes[episode_slot]
+        frames = episode[start : start + self.chunk_size]
+        valid_steps = len(frames)
 
         states = np.stack([f["state"] for f in frames])
         actions = np.stack([f["action"] for f in frames])
@@ -75,9 +89,19 @@ class MimicTrainDataset(Dataset):
             states = self._normalize(states, "state")
             actions = self._normalize(actions, "action")
 
+        is_pad = np.zeros(self.chunk_size, dtype=np.bool_)
+        if valid_steps < self.chunk_size:
+            pad_steps = self.chunk_size - valid_steps
+            states = np.pad(states, ((0, pad_steps), (0, 0)), mode="constant")
+            actions = np.pad(actions, ((0, pad_steps), (0, 0)), mode="constant")
+            is_pad[valid_steps:] = True
+
         return {
             "state": torch.from_numpy(states),
             "action": torch.from_numpy(actions),
+            "is_pad": torch.from_numpy(is_pad),
+            "episode_index": torch.tensor(frames[0]["episode_index"], dtype=torch.long),
+            "frame_index": torch.tensor(frames[0]["frame_index"], dtype=torch.long),
         }
 
 

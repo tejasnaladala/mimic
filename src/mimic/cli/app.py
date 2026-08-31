@@ -272,13 +272,13 @@ def evaluate(
     device: str = typer.Option("cpu", help="Device"),
 ):
     """Evaluate a trained policy in simulation."""
-    import torch
     from rich.table import Table
 
     import mimic.envs.tasks  # noqa: F401
     from mimic.envs.registry import make as make_env
     from mimic.train.eval import evaluate_policy
     from mimic.train.policies.act import ACTPolicy
+    from mimic.train.policies.base import load_checkpoint
     from mimic.train.policies.diffusion import DiffusionPolicy
 
     console.print("[bold cyan]Mimic Evaluation[/bold cyan]")
@@ -286,7 +286,7 @@ def evaluate(
     environment = make_env(env)
 
     # Try loading as ACT first, then Diffusion
-    ckpt = torch.load(checkpoint, map_location="cpu", weights_only=False)
+    ckpt = load_checkpoint(checkpoint)
     config = ckpt.get("config", {})
 
     if "n_diffusion_steps" in config:

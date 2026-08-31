@@ -1,7 +1,50 @@
 import numpy as np
+import pytest
 import torch
 
+from mimic.data.dataset import MimicDataset
+from mimic.train.dataloader import MimicTrainDataset
 from mimic.train.policies.act import ACTPolicy
+
+
+class _MaliciousCheckpoint:
+    def __init__(self, marker_path: str):
+        self.marker_path = marker_path
+
+    def __reduce__(self):
+        code = f"open({self.marker_path!r}, 'w').write('executed')"
+        return exec, (code,)
+
+
+def test_training_windows_never_cross_episode_boundaries(tmp_path) -> None:
+    dataset_path = tmp_path / "dataset"
+    recorded = MimicDataset.create(dataset_path, env_name="test", action_dim=1, state_dim=1)
+    for value in (0.0, 1.0):
+        recorded.add_frame({"state": np.array([value])}, np.array([value]))
+    recorded.end_episode()
+    for value in (100.0, 101.0, 102.0, 103.0):
+        recorded.add_frame({"state": np.array([value])}, np.array([value]))
+    recorded.end_episode()
+
+    dataset = MimicTrainDataset(dataset_path, chunk_size=3, normalize=False)
+
+    assert len(dataset) == 6
+    for item in dataset:
+        valid_states = item["state"][~item["is_pad"], 0]
+        if item["episode_index"].item() == 0:
+            assert torch.all(valid_states < 50)
+        else:
+            assert torch.all(valid_states >= 100)
+
+    final_full_window = dataset[3]
+    assert final_full_window["frame_index"].item() == 1
+    assert final_full_window["state"][:, 0].tolist() == [101.0, 102.0, 103.0]
+    assert final_full_window["is_pad"].tolist() == [False, False, False]
+
+    final_suffix = dataset[-1]
+    assert final_suffix["frame_index"].item() == 3
+    assert final_suffix["state"][:, 0].tolist() == [103.0, 0.0, 0.0]
+    assert final_suffix["is_pad"].tolist() == [False, True, True]
 
 
 class TestACTPolicy:
@@ -64,6 +107,45 @@ class TestACTPolicy:
         with torch.no_grad():
             actions = policy.predict(obs)
         assert actions.shape == (1, 5, 2)
+
+    def test_padding_is_excluded_from_context_and_loss(self):
+        policy = ACTPolicy(
+            obs_dim=4,
+            action_dim=2,
+            action_chunk_size=5,
+            hidden_dim=32,
+            n_layers=1,
+            dropout=0.0,
+        )
+        policy.eval()
+        state = torch.randn(2, 5, 4)
+        actions = torch.randn(2, 5, 2)
+        is_pad = torch.tensor([[False, False, False, True, True]] * 2)
+        altered = actions.clone()
+        altered[:, 3:] = 1_000_000
+
+        torch.manual_seed(123)
+        original_loss = policy.forward(
+            {"state": state, "action": actions, "is_pad": is_pad}
+        )["loss"]
+        torch.manual_seed(123)
+        altered_loss = policy.forward(
+            {"state": state, "action": altered, "is_pad": is_pad}
+        )["loss"]
+
+        assert torch.allclose(original_loss, altered_loss)
+
+    def test_rejects_pickle_capable_checkpoint(self, tmp_path):
+        marker = tmp_path / "executed.txt"
+        checkpoint = tmp_path / "malicious.pt"
+        torch.save(
+            {"state_dict": _MaliciousCheckpoint(str(marker)), "config": {}},
+            checkpoint,
+        )
+
+        with pytest.raises(RuntimeError, match="tensor-only"):
+            ACTPolicy.load(str(checkpoint))
+        assert not marker.exists()
 
 
 class TestDiffusionPolicy:
@@ -146,6 +228,35 @@ class TestDiffusionPolicy:
         loaded = DiffusionPolicy.load(path)
         assert loaded.obs_dim == 4
         assert loaded.n_diffusion_steps == 10
+
+    def test_padding_is_excluded_from_input_and_loss(self):
+        from mimic.train.policies.diffusion import DiffusionPolicy
+
+        policy = DiffusionPolicy(
+            obs_dim=4,
+            action_dim=2,
+            action_chunk_size=5,
+            hidden_dim=32,
+            n_layers=2,
+            n_diffusion_steps=10,
+        )
+        policy.eval()
+        state = torch.randn(2, 5, 4)
+        actions = torch.randn(2, 5, 2)
+        is_pad = torch.tensor([[False, False, False, True, True]] * 2)
+        altered = actions.clone()
+        altered[:, 3:] = 1_000_000
+
+        torch.manual_seed(321)
+        original_loss = policy.forward(
+            {"state": state, "action": actions, "is_pad": is_pad}
+        )["loss"]
+        torch.manual_seed(321)
+        altered_loss = policy.forward(
+            {"state": state, "action": altered, "is_pad": is_pad}
+        )["loss"]
+
+        assert torch.allclose(original_loss, altered_loss)
 
 
 class TestTrainer:

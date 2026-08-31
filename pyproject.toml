@@ -38,8 +38,8 @@ teleop = [
     "aiohttp>=3.9.0",
 ]
 train = [
-    "torch>=2.2.0",
-    "torchvision>=0.17.0",
+    "torch>=2.2.0,<2.11",
+    "torchvision>=0.17.0,<0.26",
     "einops>=0.8.0",
     "wandb>=0.17.0",
 ]
@@ -75,3 +75,12 @@ select = ["E", "F", "I", "UP"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src/mimic",
+    "/tests",
+    "/pyproject.toml",
+    "/README.md",
+    "/LICENSE",
+]

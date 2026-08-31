@@ -20,7 +20,9 @@ Browser (WebRTC)  -->  Record demos  -->  Train policy  -->  Deploy
 ## Quick start
 
 ```bash
-pip install "mimic-robotics[all]"
+git clone https://github.com/tejasnaladala/mimic.git
+cd mimic
+pip install -e ".[all]"
 
 # Teleoperate (browser opens automatically)
 mimic teleop --env pick-place
@@ -60,6 +62,8 @@ demo_data/
 ```
 
 Training reads that dataset and fits one of two policies:
+
+Action chunks are indexed within each episode. Near an episode boundary, the remaining positions are zero-padded and masked out of both the model context and training loss; a chunk never borrows frames from the next episode.
 
 - **ACT** (Action Chunking Transformer) predicts a chunk of future actions per forward pass, which trains fast and runs cheaply at inference.
 - **Diffusion Policy** (DDPM) denoises an action sequence conditioned on the observation, which handles multi-modal demonstrations where ACT collapses to the mean.
