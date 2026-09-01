@@ -4,17 +4,24 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue.svg)](https://www.python.org/downloads/)
 
-Teleoperate a simulated robot arm from your browser, record the demonstrations, train an imitation-learning policy on them, and export it for inference. The whole loop runs from four CLI commands.
+**Browser-based teleoperation and imitation learning for a simulated Franka Panda arm.**
 
-The interesting part is the front end: a MuJoCo Franka Panda is rendered server-side and streamed to the browser over WebRTC at 60 FPS, with control commands flowing back over a data channel in the same connection. No plugin, no local install, no GPU on the client. You drive the arm with the keyboard, a gamepad, or a phone touchscreen, and Ctrl-click anywhere in the 3D scene to send the gripper there via Jacobian IK.
+Mimic runs MuJoCo simulation, rendering, inverse kinematics, data capture, and policy training on
+the host machine. The browser receives WebRTC video and sends keyboard, gamepad, touch, and
+Ctrl-click commands over a data channel.
 
-<!-- TODO: add demo GIF of the teleop HUD here -->
-<!-- ![Mimic teleop](docs/assets/demo.gif) -->
+The browser client requires no Mimic installation or plugin. The host must install Mimic and its
+teleoperation dependencies; training and ONNX export require their corresponding optional
+dependencies. `TeleopConfig.fps` defaults to `60` and paces the server render loop. That value is
+a configuration target, not a measured end-to-end frame rate.
+
+The quickstart uses five CLI operations: teleoperate and record, replay, train, evaluate, and
+export.
 
 ```
-Browser (WebRTC)  -->  Record demos  -->  Train policy  -->  Deploy
-   kb/gamepad/touch     Parquet + MP4      ACT / Diffusion    ONNX / PyTorch
-   server-side render   LeRobot v3 layout  transformer        real-time inference
+Teleoperate + record  -->  Replay  -->  Train  -->  Evaluate  -->  Export
+Browser + WebRTC       MP4 viewer    ACT /       MuJoCo          ONNX
+Parquet + MP4                        Diffusion   simulation
 ```
 
 ## Quick start
@@ -27,24 +34,31 @@ pip install -e ".[all]"
 # Teleoperate (browser opens automatically)
 mimic teleop --env pick-place
 
-# Train a policy on collected demos
-mimic train --policy act --data ./demo_data
-
 # Replay a recorded episode
 mimic replay --data ./demo_data --episode 0
 
+# Train a policy on collected demos
+mimic train --policy act --data ./demo_data
+
 # Evaluate in simulation
-mimic eval --checkpoint outputs/best.pt --env pick-place
+mimic eval --checkpoint outputs/final.pt --env pick-place
 
 # Export to ONNX
-mimic deploy outputs/best.pt --output model.onnx
+mimic deploy outputs/final.pt --output model.onnx
 ```
 
 ## How it works
 
-The teleop server (`FastAPI` + `aiortc`) holds the MuJoCo simulation and a render loop. On each WebRTC negotiation it opens a video track and a `commands` data channel. The render loop steps the physics, renders the active camera, and pushes frames to the video track; incoming control messages on the data channel update the joint or Cartesian targets, which a controller interpolates toward at 60 FPS so motion stays smooth even when input is bursty.
+The teleop server (`FastAPI` + `aiortc`) holds the MuJoCo simulation and render loop. Each WebRTC
+connection gets a video track and a `commands` data channel. Incoming messages update joint or
+Cartesian targets; once per render-loop iteration, the controller advances toward the target,
+steps the simulation, renders the active camera, and queues a frame for the video track. The loop
+sleeps for `1 / config.fps` after that work, so delivered frame rate depends on host and transport
+time.
 
-Click-to-navigate casts a ray from the camera through the clicked pixel into the MuJoCo scene, finds the hit point, and solves Jacobian IK to move the gripper there. Camera orbit, pan, and zoom are handled the same way, server-side, so the client stays a thin video surface plus an input layer.
+For click-to-navigate, the server casts a ray from the camera through the clicked pixel, finds the
+MuJoCo hit point, and applies Jacobian IK toward it. Camera orbit, pan, and zoom also execute on
+the server; the browser decodes video and sends input events.
 
 Recording is built into the teleop UI (REC / STOP / SAVE / DISCARD). A saved episode writes numeric data (joint positions, velocities, actions, rewards) to Parquet and the camera streams to MP4, in a layout that matches LeRobot v3:
 
@@ -65,10 +79,13 @@ Training reads that dataset and fits one of two policies:
 
 Action chunks are indexed within each episode. Near an episode boundary, the remaining positions are zero-padded and masked out of both the model context and training loss; a chunk never borrows frames from the next episode.
 
-- **ACT** (Action Chunking Transformer) predicts a chunk of future actions per forward pass, which trains fast and runs cheaply at inference.
-- **Diffusion Policy** (DDPM) denoises an action sequence conditioned on the observation, which handles multi-modal demonstrations where ACT collapses to the mean.
+- **ACT** (Action Chunking Transformer) uses a conditional VAE and Transformer decoder to predict
+  a chunk of future actions.
+- **Diffusion Policy** (DDPM) predicts a chunk by iteratively denoising an action sequence
+  conditioned on the observation.
 
-Export goes through `torch.onnx` to a single `.onnx` file, with an action buffer on the inference side so chunked policies stay real-time.
+Export goes through `torch.onnx` to a single `.onnx` file. The inference wrapper buffers a
+predicted action chunk and returns its actions one at a time.
 
 ## Architecture
 
@@ -89,13 +106,14 @@ Export goes through `torch.onnx` to a single `.onnx` file, with an action buffer
                  v                       +------------------+
           +------------------+           |    Deployment    |
           |   HuggingFace    |           |   ONNX export    |
-          |   Hub            |           |   inference loop |
+          |   Hub            |           | buffered actions |
           +------------------+           +------------------+
 ```
 
 ## Simulation
 
-MuJoCo 3.2+ with the Menagerie Franka Panda (the production mesh model, not box primitives). Three tasks ship in the registry:
+Mimic requires MuJoCo 3.2+ and bundles the mesh-based Franka Panda model used by its three
+registered tasks:
 
 | Environment | Task | Action space |
 |-------------|------|--------------|
@@ -147,7 +165,8 @@ pip install "mimic-robotics[deploy]"     # ONNX export
 pip install "mimic-robotics[hub]"        # HuggingFace Hub
 ```
 
-`aiortc`, `mujoco`, and `torch` are version-sensitive (a past `aiortc` 1.14 change broke the WebRTC handshake until pinned), so install into a clean virtualenv.
+Python 3.11 or newer is required. A separate virtual environment keeps the teleoperation,
+training, and deployment dependency groups isolated from other projects.
 
 ## Development
 
@@ -158,11 +177,12 @@ pip install -e ".[all,dev]"
 
 # Tests render MuJoCo headless, so set a software GL backend.
 # Linux: osmesa (CI installs libosmesa6-dev). macOS: egl or glfw.
-MUJOCO_GL=osmesa python -m pytest tests/ -v   # 103 tests
+MUJOCO_GL=osmesa python -m pytest tests/ -v
 ruff check src/
 ```
 
-CI runs the suite on Python 3.11 and 3.12 against the osmesa backend on every push.
+CI runs the suite with the osmesa backend on Python 3.11 and 3.12 for pushes and pull requests
+targeting `main` or `master`.
 
 ## License
 
